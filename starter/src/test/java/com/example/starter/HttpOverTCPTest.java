@@ -1,8 +1,9 @@
-package com.ibm.ei.core.vertx;
+package com.example.starter;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,34 +22,38 @@ public class HttpOverTCPTest {
     @Test
     @DisplayName("HTTP over tcp")
     void tcpClientHttpServer(final Vertx vertx, final VertxTestContext testContext) {
-        HttpServer server = vertx.createHttpServer();
-        
-        server.requestHandler(request -> {
-            System.out.println("jh log: " + request.body());
-            testContext.completeNow();
-        });
-
-        server.listen(1234, "localhost")
-            .onComplete(res -> {
-            if (res.succeeded()) {
-                System.out.println("Server is now listening!");
-            } else {
-                System.out.println("Failed to bind!");
-            }
-        });
-
         final String httpBody = "Hello";
         final String httpRequest = "POST / HTTP/1.1\n" +
             "Host: localhost:" + 1234 +"\n" +
             "Content-Length: " + httpBody.length() + "\n" +
             "Accept: */*\r\n\r\n" + httpBody;
         
-        requestBytes = Buffer.buffer(httpRequest.getBytes(StandardCharsets.UTF_8));
-        NetClient client = vertx.createNetClient();
-        client.connect(1234,"localhost")
-            .compose(socket -> 
-                socket.write(requestBytes).onFailure(testContext::failNow)
-            );
-    }
+        HttpServer server = vertx.createHttpServer();
 
+        server.requestHandler(request -> {
+            request.body()
+                .onSuccess(b -> testContext.verify( () -> {
+                    assertThat(b.toString()).isEqualTo(httpBody);
+                }).completeNow())
+                .onFailure(testContext::failNow);
+            request.response().end("Done");
+        });
+
+        server.listen(1234, "localhost")
+            .onComplete(res -> {
+            if (res.succeeded()) {
+                System.out.println("Server is now listening!");
+                requestBytes = Buffer.buffer(httpRequest.getBytes(StandardCharsets.UTF_8));
+                NetClient client = vertx.createNetClient();
+                client.connect(1234,"localhost")
+                    .compose(socket -> 
+                        socket.write(requestBytes)
+                        .onSuccess(v -> System.out.println("jh log: successful write"))
+                        .onFailure(testContext::failNow)
+                    ).onFailure(testContext::failNow);
+            } else {
+                System.out.println("Failed to bind!");
+            }
+        });
+    }
 }

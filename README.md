@@ -1,0 +1,4 @@
+- cd in to the starter directory
+- Running `mvn clean verify` with `vertx.version` set to 4.5.21 results in the test hanging.
+- Running `mvn clean verify` with `vertx.version` back leveled by one patch version to 4.5.20 the test passes.
+- ...huh?...
